@@ -1,0 +1,133 @@
+{
+	"name": "dataflow_sales",
+	"properties": {
+		"description": "This is to do transformation on sales data",
+		"folder": {
+			"name": "sales"
+		},
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [
+				{
+					"dataset": {
+						"referenceName": "dataset_sales",
+						"type": "DatasetReference"
+					},
+					"name": "sales",
+					"description": "loads sales data from dataset_sales"
+				}
+			],
+			"sinks": [
+				{
+					"dataset": {
+						"referenceName": "dataset_output",
+						"type": "DatasetReference"
+					},
+					"name": "totalSalesByCountryAndProductLineSink",
+					"description": "saving the final result at totalSalesByCountryAndProductLine.csv under output of container01 in same storage account"
+				},
+				{
+					"dataset": {
+						"referenceName": "dataset_output",
+						"type": "DatasetReference"
+					},
+					"name": "totalSalesByYearAndQuatarSink",
+					"description": "saving the final result at totalSalesByYearAndQuatar.csv under output of container01 in same storage account"
+				}
+			],
+			"transformations": [
+				{
+					"name": "partitionData",
+					"description": "Assigning ranks based on total sales per each quatar "
+				},
+				{
+					"name": "partitionsByYearAndQuater",
+					"description": "Partitioning data based on year and quatar"
+				},
+				{
+					"name": "aggregationOnCountryAndProductType",
+					"description": "partitioning data based on product line and country"
+				},
+				{
+					"name": "partitionDataByCountry",
+					"description": "Assigning ranks based on total sales by country"
+				}
+			],
+			"scriptLines": [
+				"source(output(",
+				"          ORDERNUMBER as integer,",
+				"          QUANTITYORDERED as integer,",
+				"          PRICEEACH as double,",
+				"          ORDERLINENUMBER as integer,",
+				"          SALES as double,",
+				"          ORDERDATE as timestamp,",
+				"          STATUS as string,",
+				"          QTR_ID as integer,",
+				"          MONTH_ID as integer,",
+				"          YEAR_ID as integer,",
+				"          PRODUCTLINE as string,",
+				"          MSRP as integer,",
+				"          PRODUCTCODE as string,",
+				"          CUSTOMERNAME as string,",
+				"          PHONE as string,",
+				"          ADDRESSLINE1 as string,",
+				"          ADDRESSLINE2 as string,",
+				"          CITY as string,",
+				"          STATE as string,",
+				"          POSTALCODE as string,",
+				"          COUNTRY as string,",
+				"          TERRITORY as string,",
+				"          CONTACTLASTNAME as string,",
+				"          CONTACTFIRSTNAME as string,",
+				"          DEALSIZE as string",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     ignoreNoFilesFound: false,",
+				"     dateFormats: ['dd-MM-yyyy'],",
+				"     preferredIntegralType: 'integer',",
+				"     preferredFractionalType: 'double') ~> sales",
+				"partitionsByYearAndQuater window(over(YEAR_ID),",
+				"     desc(totalSales, true),",
+				"     rank = denseRank()) ~> partitionData",
+				"sales aggregate(groupBy(YEAR_ID,",
+				"          QTR_ID),",
+				"     totalOrders = sum(QUANTITYORDERED),",
+				"          totalSales = sum(QUANTITYORDERED*PRICEEACH)) ~> partitionsByYearAndQuater",
+				"sales aggregate(groupBy(PRODUCTLINE,",
+				"          COUNTRY),",
+				"     totalOrders = sum(QUANTITYORDERED),",
+				"          totalSales = sum(QUANTITYORDERED * PRICEEACH)) ~> aggregationOnCountryAndProductType",
+				"aggregationOnCountryAndProductType window(over(COUNTRY),",
+				"     desc(totalSales, true),",
+				"     rank = denseRank()) ~> partitionDataByCountry",
+				"partitionDataByCountry sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     partitionFileNames:['totalSalesByCountryAndProductLine.csv'],",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true,",
+				"     mapColumn(",
+				"          COUNTRY,",
+				"          PRODUCTLINE,",
+				"          totalOrders,",
+				"          totalSales,",
+				"          rank",
+				"     ),",
+				"     partitionBy('hash', 1)) ~> totalSalesByCountryAndProductLineSink",
+				"partitionData sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     partitionFileNames:['totalSalesByYearAndQuatar.csv'],",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true,",
+				"     mapColumn(",
+				"          YEAR_ID,",
+				"          QTR_ID,",
+				"          totalOrders,",
+				"          totalSales,",
+				"          rank",
+				"     ),",
+				"     partitionBy('hash', 1)) ~> totalSalesByYearAndQuatarSink"
+			]
+		}
+	}
+}

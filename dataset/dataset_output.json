@@ -1,0 +1,27 @@
+{
+	"name": "dataset_output",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "ls_sa_container01",
+			"type": "LinkedServiceReference"
+		},
+		"folder": {
+			"name": "common"
+		},
+		"annotations": [],
+		"type": "DelimitedText",
+		"typeProperties": {
+			"location": {
+				"type": "AzureBlobStorageLocation",
+				"folderPath": "output",
+				"container": "container01"
+			},
+			"columnDelimiter": ",",
+			"escapeChar": "\\",
+			"firstRowAsHeader": true,
+			"quoteChar": "\""
+		},
+		"schema": []
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

@@ -1,0 +1,9 @@
+{
+	"name": "adf-01-movies",
+	"location": "southindia",
+	"identity": {
+		"type": "SystemAssigned",
+		"principalId": "af9505ea-6eb1-4c34-950e-bff8d4be9733",
+		"tenantId": "79404e09-4f2a-42a6-8e2f-759de14c1787"
+	}
+}

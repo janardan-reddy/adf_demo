@@ -1,0 +1,134 @@
+{
+	"name": "dataflow_movies",
+	"properties": {
+		"description": "movies graphical data transformations",
+		"folder": {
+			"name": "movies"
+		},
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [
+				{
+					"dataset": {
+						"referenceName": "dataset_movies",
+						"type": "DatasetReference"
+					},
+					"name": "movies",
+					"description": "get movies data from movies dataset"
+				},
+				{
+					"dataset": {
+						"referenceName": "dataset_links",
+						"type": "DatasetReference"
+					},
+					"name": "links",
+					"description": "get links data from dataset_links"
+				},
+				{
+					"dataset": {
+						"referenceName": "dataset_ratings",
+						"type": "DatasetReference"
+					},
+					"name": "ratings",
+					"description": "get ratings data from dataset_ratings"
+				}
+			],
+			"sinks": [
+				{
+					"dataset": {
+						"referenceName": "dataset_output",
+						"type": "DatasetReference"
+					},
+					"name": "finalResultSink",
+					"description": "saving data to finalResult.csv of same container under output folder"
+				}
+			],
+			"transformations": [
+				{
+					"name": "moviesLinks",
+					"description": "combining movies and links base don movieid"
+				},
+				{
+					"name": "moviesLinksRatings",
+					"description": "combines moviesLinks with Ratings based on movieid"
+				},
+				{
+					"name": "movieOverallRating",
+					"description": "calculates overall rating by movieid"
+				},
+				{
+					"name": "requiredAttributes",
+					"description": "fetching only required attributes (not considering duplicate columns)"
+				},
+				{
+					"name": "sortingMovies",
+					"description": "sorting movies base don overall ratings"
+				}
+			],
+			"scriptLines": [
+				"source(output(",
+				"          movieId as integer,",
+				"          title as string,",
+				"          genres as string",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     ignoreNoFilesFound: false,",
+				"     rowUrlColumn: 'sourceLocation') ~> movies",
+				"source(output(",
+				"          movieId as integer,",
+				"          imdbId as integer,",
+				"          tmdbId as integer",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     ignoreNoFilesFound: false) ~> links",
+				"source(output(",
+				"          userId as integer,",
+				"          movieId as integer,",
+				"          rating as double,",
+				"          timestamp as timestamp",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     ignoreNoFilesFound: false) ~> ratings",
+				"movies, links join(movies@movieId == links@movieId,",
+				"     joinType:'inner',",
+				"     matchType:'exact',",
+				"     ignoreSpaces: false,",
+				"     broadcast: 'auto')~> moviesLinks",
+				"moviesLinks, movieOverallRating join(movies@movieId == movieOverallRating@movieId,",
+				"     joinType:'inner',",
+				"     matchType:'exact',",
+				"     ignoreSpaces: false,",
+				"     broadcast: 'auto')~> moviesLinksRatings",
+				"ratings aggregate(groupBy(movieId),",
+				"     avgRating = avg(rating)) ~> movieOverallRating",
+				"moviesLinksRatings select(mapColumn(",
+				"          movieId = movies@movieId,",
+				"          title,",
+				"          genres,",
+				"          imdbId,",
+				"          tmdbId,",
+				"          avgRating",
+				"     ),",
+				"     skipDuplicateMapInputs: false,",
+				"     skipDuplicateMapOutputs: false) ~> requiredAttributes",
+				"requiredAttributes sort(desc(avgRating, true)) ~> sortingMovies",
+				"sortingMovies sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     partitionFileNames:['finalResult.csv'],",
+				"     truncate: true,",
+				"     mapColumn(",
+				"          movieId,",
+				"          title,",
+				"          genres,",
+				"          imdbId,",
+				"          tmdbId,",
+				"          avgRating",
+				"     ),",
+				"     partitionBy('hash', 1)) ~> finalResultSink"
+			]
+		}
+	}
+}
